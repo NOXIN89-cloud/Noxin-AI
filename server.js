@@ -37,7 +37,10 @@ app.post('/api/chat', async (req, res) => {
         res.status(500).json({ reply: "Error: Could not connect to AI service." });
     }
 });
-
+// Serve your frontend homepage
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 app.listen(PORT, () => {
     console.log(`Noxin AI server running at http://localhost:${PORT}`);
 });

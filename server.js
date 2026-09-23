@@ -1,33 +1,43 @@
+require('dotenv').config();
 const express = require('express');
-const { GoogleGenAI } = require('@google/genai');
+const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-const ai = new GoogleGenAI({ apiKey:process.env.GEMINI_API_KEY });
-
+// Middleware to parse incoming JSON and serve static files
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
+// Endpoint that talks to Ollama's cloud API
 app.post('/api/chat', async (req, res) => {
     try {
         const userMessage = req.body.message;
-        
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.6-flash',
-            contents: userMessage,
-            config: {
-                systemInstruction: "You are Noxin AI, a helpful, friendly, and smart AI assistant created by Mickey. You HAVE full image generation capabilities! When a user asks you to make, generate, draw, or show an image, picture, or photo, you MUST include this exact tag in your response: `[IMAGE: detailed description of image]`. For example, if asked for an image of a cat, include `[IMAGE: cute glowing cyberpunk cat]`. Do NOT say you cannot generate images!"
-            }
+
+        const response = await fetch('https://api.ollama.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.OLLAMA_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: 'gemma', // Update this if you are using a different cloud model name
+                messages: [{ role: 'user', content: userMessage }]
+            })
         });
 
-        res.json({ reply: response.text });
+        const data = await response.json();
+        
+        // Send the AI's reply back to your frontend
+        const aiReply = data.choices?.[0]?.message?.content || "No response received.";
+        res.json({ reply: aiReply });
+
     } catch (error) {
-        console.error("Error from Gemini:", error);
-        res.status(500).json({ reply: "Sorry, I had trouble connecting to my AI brain." });
+        console.error("Error communicating with Ollama API:", error);
+        res.status(500).json({ reply: "Error: Could not connect to AI service." });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Noxin AI is running on port ${PORT}`);
+    console.log(`Noxin AI server running at http://localhost:${PORT}`);
 });
